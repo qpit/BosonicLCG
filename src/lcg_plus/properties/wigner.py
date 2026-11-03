@@ -19,7 +19,7 @@ from scipy.stats import multivariate_normal
 from numba import njit
 hbar = 2
 
-def compute_wigner_function(means, covs, weights, norm, xvec, pvec):
+def compute_wigner_function(means, covs, weights, xvec, pvec):
     X, P = np.meshgrid(xvec, -pvec, sparse=True) #Use -pvec because of matplotlib.imshow y axis convention. Can cause issues if comparing with analytical Wigner functions..
             
     wigner = 0
@@ -44,7 +44,7 @@ def compute_wigner_function(means, covs, weights, norm, xvec, pvec):
         wigner += (weight * prefactor) * np.exp(-0.5 * (exp_arg))
     return wigner
 
-def compute_wigner_function_log(means, covs, log_weights, norm, xvec, pvec):
+def compute_wigner_function_log(means, covs, log_weights, xvec, pvec):
     X, P = np.meshgrid(xvec, -pvec, sparse=False) #Use -p because of matplotlib.imshow y axis convention. Can cause issues if comparing with analytical Wigner functions..
             
     Q = np.array([X,P])
