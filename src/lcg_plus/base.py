@@ -14,9 +14,9 @@
 
 
 import numpy as np
-from thewalrus.symplectic import xxpp_to_xpxp, expand, rotation
 from thewalrus.decompositions import williamson
-from lcg_plus.operations.measurements import project_fock_coherent, project_ppnrd_thermal, project_homodyne, project_fock_thermal, project_fock_coherent_gradients
+from lcg_plus.operations.measurements import measure_fock_coherent, measure_ppnrd, measure_homodyne, measure_fock_thermal, measure_generaldyne
+from lcg_plus.operations.measurements import measure_fock_coherent_gradients
 from lcg_plus.operations.gaussian_unitaries import apply_symplectic_on_subsystem, apply_symplectic_full
 from lcg_plus.operations.channels import apply_gaussian_channel_full
 from lcg_plus.properties.normalisation import calculate_norm
@@ -30,7 +30,6 @@ from lcg_plus.operations.sampling import *
 from lcg_plus.helper.from_sf import chop_in_blocks_multi, chop_in_blocks_vector_multi
 from lcg_plus.helper.matrices import is_symplectic
 from scipy.linalg import block_diag
-from scipy.special import logsumexp
 
 import itertools as it
 
@@ -125,7 +124,7 @@ class State:
     def post_select_fock(self, mode : int, photon_number : int, method_kwargs = {'method' : 'coherent', 'infidelity' : 1e-4, 'gradients' : False}):
         """Post select on a photon number in the given mode. The measured mode is traced out.
         """
-        data_in = self.means, self.covs, self.log_weights
+        data_in = self.means, self.covs, self.log_weights, self.num_k
 
         if method_kwargs['gradients']:
             data_partial = self.means_partial, self.covs_partial, self.log_weights_partial
@@ -133,20 +132,20 @@ class State:
         if method_kwargs['method'] == 'coherent':
             infid = method_kwargs['infidelity']
             if method_kwargs['gradients'] == False:
-                data_out = project_fock_coherent(photon_number, data_in, mode, infid, self.num_k)
+                data_out = measure_fock_coherent(photon_number, data_in, mode, infid)
             else: 
                 raise ValueError('Gradients not compatible with reduced coherent representation. Use the coherent_full method.')
 
         elif method_kwargs['method'] == 'coherent_full':
             infid = method_kwargs['infidelity']
             if method_kwargs['gradients'] == False:
-                data_out = project_fock_coherent(photon_number, data_in, mode, infid)
+                data_out = measure_fock_coherent(photon_number, data_in, mode, infid, red_lcg=False)
             else: 
-                data_out, data_gradients = project_fock_coherent_gradients(photon_number, data_in, data_partial, mode, infid)
+                data_out, data_gradients = measure_fock_coherent_gradients(photon_number, data_in, data_partial, mode, infid)
 
         elif method_kwargs['method'] == 'thermal':
             if method_kwargs['gradients'] == False:
-                data_out = project_fock_thermal(data_in, photon_number, mode, method_kwargs['squeezing'])
+                data_out = measure_fock_thermal(photon_number, data_in, mode, method_kwargs['squeezing'])
             else: 
                 raise ValueError("Gradients not compatible with thermal fock representation. Use the coherent_full method.")
 
@@ -170,37 +169,39 @@ class State:
         if self.num_k != self.num_weights:
             raise ValueError('This measurement is not yet compatible with fast gaussian rep.')
         
-        data_in = self.means, self.covs, self.log_weights
+        data_in = self.means, self.covs, self.log_weights, self.num_k
         
-        data_out = project_ppnrd_thermal(data_in, mode, click_number, total_detectors)
+        data_out = measure_ppnrd(click_number, data_in, mode, total_detectors)
         
         self.update_data(data_out)
         self.norm, self.log_norm = calculate_norm(self)
        
     
-    def post_select_homodyne(self, mode : int, phase : float, result : float):
+    def post_select_homodyne(self, modes : list, phases : float, results: float):
         """
         Post select mode with a homodyne detector with local oscillator phase.
         """
 
-        #First, rotate the measured mode by the opposite angle
-        S = xxpp_to_xpxp(expand(rotation(-phase), mode, self.num_modes))
-        self.apply_gaussian_unitary(S)
-
-        data_in = self.means, self.covs, self.log_weights
+        data_in = self.means, self.covs, self.log_weights, self.num_k
         
-        data_out = project_homodyne(data_in, mode, result, self.num_k)
+        data_out = measure_homodyne(data_in, modes, phases, results)
         self.update_data(data_out)
         self.norm, self.log_norm = calculate_norm(self)
 
 
     def post_select_generaldyne(self, modes : list, povm_cov : np.ndarray, povm_mean : np.ndarray):
         """
-        Post-select modes """
-        
+        Post-select modes on a Gaussian POVM element parametrized by a covariance matrix and displacement vector
+        """
+        data_in = self.means, self.covs, self.log_weights, self.num_k
+        data_out = measure_generaldyne(data_in, modes, povm_cov, povm_mean)
+        self.update_data(data_out)
+        self.norm, self.log_norm = calculate_norm(self)
+
 
     def get_wigner(self, xvec : np.array, pvec : np.array, indices = None, use_log_weights = True) -> np.ndarray:
-        """Return the Wigner function evaluated on the 2D grid of points given by xvec and pvec. Inspired by strawberryfields.backends.states.
+        """Return the Wigner function evaluated on the 2D grid of points given by xvec and pvec.
+        See https://github.com/XanaduAI/strawberryfields/blob/master/strawberryfields/backends/states.py#L1608.
         """
 
         self.normalise()
@@ -221,15 +222,15 @@ class State:
 
         return np.real_if_close(W)
 
-    def tensor_product(self, num_copies):
-        """Tensor product itself num times
+    def tensor_product(self, num_copies : int):
+        """Tensor product State num times
         """
         # Check number of modes in state
         if self.num_modes != 1:
-            raise ValueError('This is a multimode state. So far, we can only copy single mode states.')
+            raise ValueError('This is a multimode state. So far, we can only tensor product single mode states.')
 
         if self.num_k != self.num_weights:
-            raise Warning('Check that it handles the fast rep correctly (Not sure that it does).')
+            raise Warning('I didnt check whether it handles the fast rep correctly.')
         
         new_means, new_covs, new_log_weights = compute_nfold_tensor_product(self.means, self.covs, self.log_weights, num_copies)
         self.update_data([new_means, new_covs, new_log_weights, len(new_log_weights)])
@@ -272,7 +273,7 @@ class State:
         if np.trace(D) != self.hbar:
             raise ValueError('State is not pure.')
         
-        #Remove any squeezing
+        #Undo the Gaussian unitary gate from Williamson
         self.apply_gaussian_unitary(np.linalg.inv(S))
 
         data = self.means, self.covs, self.log_weights, self.num_k
@@ -284,7 +285,7 @@ class State:
         self.norm, self.log_norm = calculate_norm()
         self.normalise()
     
-        #Re-apply the squeezing
+        #Re-apply the Gaussian unitary
         self.apply_gaussian_unitary(S)
 
 
@@ -295,7 +296,7 @@ class State:
         D, S = williamson(self.covs[0])
         nu = D - np.eye(2)
         
-        #Remove any squeezing
+        #Undo the Gaussian unitary gate from Williamson
         self.apply_gaussian_unitary(np.linalg.inv(S))
         
         #Remove thermal terms from cov
@@ -320,7 +321,7 @@ class State:
         self.norm, self.log_norm = calculate_norm()
         self.normalise()
         
-        #Re-apply the random Gaussian displacement and the squeezing
+        #Re-apply the random Gaussian random displacement and the Gaussian unitary
         self.covs += nu
         self.apply_gaussian_unitary(S)
 
@@ -427,7 +428,7 @@ def compute_nfold_tensor_product(means, covs, log_weights, num_copies):
     return new_means, new_covs, new_log_weights
 
 def compute_tensor_product(data1, data2):
-    """Compute the means, covs and log_weights of the tensor product of two states. 
+    """Compute the means, covs and log_weights of the tensor product of two different states. 
     """
     #unpack data
     means1, covs1, log_weights1, k1 = data1

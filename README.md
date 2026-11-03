@@ -1,7 +1,6 @@
-# lcg_plus
+# BosonicLCG
 
-A Python-based simulator for continuous variable circuits with Gaussian components and photon-number resolving detectors. This is an extension of the [bosonic backend](https://strawberryfields.ai/photonics/demos/run_intro_bosonic.html) from strawberryfields with an improved representation of non-Gaussian states in the linear
-combination of Gaussians framework, which allows the user to e.g. simulate state preperation with GBS circuits.
+A Python-based simulator for continuous variable circuits with Gaussian components and photon-number resolving detectors. This is an extension of the [bosonic backend](https://strawberryfields.ai/photonics/demos/run_intro_bosonic.html) from strawberryfields with an improved representation of non-Gaussian states in the linear combination of Gaussians framework, which allows the user to e.g. simulate state preperation with GBS circuits.
 
 ## Dependencies
 - See `pyproject.toml`

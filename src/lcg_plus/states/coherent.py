@@ -81,7 +81,6 @@ def gen_fock_coherent(N, infid, eps = None, norm = True, fast = True, hbar =2):
         means, covs, weights, k
     """
     
-    cov = 0.5*hbar * np.eye(2)
     theta = 2*np.pi/(N+1)
     if not eps:
         eps = eps_fock_coherent(N, infid)
@@ -107,7 +106,7 @@ def gen_fock_coherent(N, infid, eps = None, norm = True, fast = True, hbar =2):
         norm = np.exp(log_norm).real #Extract the real part. Should be real anyway if not fast
         log_weights -= np.log(norm)
     
-    return means.T, cov, log_weights, num_k
+    return means.T, np.array([cov]), log_weights, num_k
     
 
 def eps_superpos_coherent(N, inf):
@@ -501,77 +500,8 @@ def gen_sqz_cat_coherent(r, alpha, k, fast = False):
         return means, cov, log_weights, 2
     else:
         return means, cov, log_weights, len(log_weights)
-
-
-def gen_fock_bosonic(n, r=0.05, hbar = 2):
-    """
-    Prepares the arrays of weights, means and covs of a Fock state.
-    Normalisation becomes zero for n > 6 giving nan in the weights
-
-    Copied from strawberryfields bosonicbackend, modified here.
-
-    Args:
-        n (int): photon number
-        r (float): quality parameter for the approximation
-
-    Returns:
-        fock (BaseBosonicState): Fock state object
-
-    Raises:
-        ValueError: if :math:`1/r^2` is less than :math:`n`
-    """
-    if 1 / r**2 < n:
-        raise ValueError(f"The parameter 1 / r ** 2={1 / r ** 2} is smaller than n={n}")
-    # A simple function to calculate the parity
-    parity = lambda n: 1 if n % 2 == 0 else -1
-    # All the means are zero
-    means = np.zeros([n + 1, 2])
-    covs = np.array(
-        [
-            0.5 * hbar
-            * np.identity(2)
-            * (1 + (n - j) * r**2)
-            / (1 - (n - j) * r**2)
-            for j in range(n + 1)
-        ]
-    )
-    weights = np.array(
-        [
-            (1 - n * (r**2)) / (1 - (n - j) * (r**2)) * comb(n, j) * parity(j)
-            for j in range(n + 1)
-        ],
-    )
-    #weights /= np.sum(weights)
-
-
-    return means, covs, weights, len(weights), np.sum(weights)
     
-def gen_fock_log(n, r = 0.05, hbar = 2):
 
-    if 1 / r**2 < n:
-            raise ValueError(f"The parameter 1 / r ** 2={1 / r ** 2} is smaller than n={n}")
-    # A simple function to calculate the parity
-    parity = lambda n: 1 if n % 2 == 0 else -1
-    # All the means are zero
-    means = np.zeros([n + 1, 2])
-    covs = np.array(
-        [
-            0.5 * hbar
-            * np.identity(2)
-            * (1 + (n - j) * r**2)
-            / (1 - (n - j) * r**2)
-            for j in range(n + 1)
-        ]
-    )
-    log_weights = np.array(
-        [np.log(1 - n * (r**2)) - np.log(1 - (n - j) * (r**2)) + np.log(comb(n,j)) + 1j*np.pi*(j%2)
-            #(1 - n * (r**2)) / (1 - (n - j) * (r**2)) * comb(n, j) * parity(j)
-            for j in range(n + 1)
-        ],
-    )
-
-    log_norm = logsumexp(log_weights)
-    return means, covs, log_weights-log_norm, len(log_weights)
 
 def mu_to_alphas(mu):
     alpha = 0.5*(mu[0].real-mu[1].imag)+1j*0.5*(mu[0].imag+mu[1].real)
