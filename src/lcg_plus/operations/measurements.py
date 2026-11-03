@@ -143,6 +143,7 @@ def transform_data_due_to_homodyne_measurement(state_data : tuple, modes : list,
     num_modes_A = r_A.shape[1] // 2 #number of modes in A
     num_modes_B = r_B.shape[1] // 2 #number of modes in B
     num_weights = len(log_weights)
+    num_covs = covs.shape[0]
 
     means_povm = np.pad(results, (0,num_modes_B)) #xxpp disp vector
 
@@ -158,7 +159,7 @@ def transform_data_due_to_homodyne_measurement(state_data : tuple, modes : list,
 
     V_B_xx = V_B[:,:num_modes_B,:num_modes_B] #xx entries
     V_B_xx_inv = np.linalg.inv(V_B_xx)
-    V_B_xx_inv_block = np.zeros((num_weights,2*num_modes_B,2*num_modes_B), dtype = V_B_xx.dtype)
+    V_B_xx_inv_block = np.zeros((num_covs,2*num_modes_B,2*num_modes_B), dtype = V_B_xx.dtype)
     V_B_xx_inv_block[:, :num_modes_B, :num_modes_B] = V_B_xx_inv
     V_AB_block = V_AB @ V_B_xx_inv_block
 
