@@ -31,7 +31,7 @@ def find_unique_means_and_merge_weights(means, log_weights, sort=False):
         if len(lw) != 1:
             unique_log_weights[i] = logsumexp(lw)
         else:
-            unique_log_weights[i] = lw
+            unique_log_weights[i] = lw[0] #to scalar
         num_k = len(unique_log_weights)
         
     #Find number of real Gaussians, and sort them as [Re G, Im G]
