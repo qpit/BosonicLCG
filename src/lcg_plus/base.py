@@ -121,37 +121,37 @@ class State:
         if hasattr(self, "means_partial"):
             self.means_partial, self.covs_partial = apply_gaussian_channel_full(self.means_partial,self.covs_partial, X , Y)
 
-    def post_select_fock(self, mode : int, photon_number : int, method_kwargs = {'method' : 'coherent', 'infidelity' : 1e-4, 'gradients' : False}):
+    def post_select_fock(self, mode : int, photon_number : int, method = 'coherent', infidelity = 1e-4, gradients = False, squeezing = None):
         """Post select on a photon number in the given mode. The measured mode is traced out.
         """
         data_in = self.means, self.covs, self.log_weights, self.num_k
 
-        if method_kwargs['gradients']:
+        if gradients:
             data_partial = self.means_partial, self.covs_partial, self.log_weights_partial
 
-        if method_kwargs['method'] == 'coherent':
-            infid = method_kwargs['infidelity']
-            if method_kwargs['gradients'] == False:
-                data_out = measure_fock_coherent(photon_number, data_in, mode, infid)
+        if method == 'coherent':
+            
+            if gradients == False:
+                data_out = measure_fock_coherent(photon_number, data_in, mode, infidelity)
             else: 
                 raise ValueError('Gradients not compatible with reduced coherent representation. Use the coherent_full method.')
 
-        elif method_kwargs['method'] == 'coherent_full':
-            infid = method_kwargs['infidelity']
-            if method_kwargs['gradients'] == False:
-                data_out = measure_fock_coherent(photon_number, data_in, mode, infid, red_lcg=False)
+        elif method == 'coherent_full':
+            
+            if gradients == False:
+                data_out = measure_fock_coherent(photon_number, data_in, mode, infidelity, red_lcg=False)
             else: 
-                data_out, data_gradients = measure_fock_coherent_gradients(photon_number, data_in, data_partial, mode, infid)
+                data_out, data_gradients = measure_fock_coherent_gradients(photon_number, data_in, data_partial, mode, infidelity)
 
-        elif method_kwargs['method'] == 'thermal':
-            if method_kwargs['gradients'] == False:
-                data_out = measure_fock_thermal(photon_number, data_in, mode, method_kwargs['squeezing'])
+        elif method == 'thermal':
+            if gradients == False:
+                data_out = measure_fock_thermal(photon_number, data_in, mode, squeezing)
             else: 
                 raise ValueError("Gradients not compatible with thermal fock representation. Use the coherent_full method.")
 
         self.update_data(data_out)
 
-        if method_kwargs['gradients']:
+        if gradients:
             self.update_gradients(data_gradients)
 
         self.norm, self.log_norm = calculate_norm(self)
