@@ -72,7 +72,6 @@ def apply_gaussian_channel_full(means, covs, X : np.ndarray, Y : np.ndarray):
     """
     means = np.einsum("...jk,...k", X, means)
 
-    print(covs.shape[0])
     if covs.shape[0] == 1:
         covs = X @ covs @ X.T + Y
     else:
